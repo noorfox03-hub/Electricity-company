@@ -73,8 +73,8 @@ const DriverDashboard = () => {
       <div className="bg-primary px-4 pt-6 pb-16 rounded-b-3xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-              <Truck className="w-6 h-6 text-primary-foreground" />
+            <div className="w-14 h-14 bg-white/10 rounded-full flex items-center justify-center p-2 border border-white/20">
+              <img src="/logo.png" alt="SAS" className="w-full h-full object-contain" />
             </div>
             <div>
               <p className="text-primary-foreground/70 text-sm">{t('welcome_user')}</p>
