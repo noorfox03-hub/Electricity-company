@@ -277,7 +277,7 @@ const AdminDashboard = () => {
                     {load.status === 'in_progress' && <span className="badge-active pulse-live">{t('in_progress_status')}</span>}
                     {load.status === 'completed' && <span className="badge-completed">{t('completed_status')}</span>}
                   </div>
-                  <p className="font-bold text-primary">{load.price} {t('sar')}</span>
+                  <p className="font-bold text-primary">{load.price} {t('sar')}</p>
                 </div>
                 
                 <p className="font-semibold text-foreground mb-2">{load.origin} ← {load.destination}</p>
