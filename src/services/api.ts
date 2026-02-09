@@ -5,8 +5,10 @@ export const api = {
   // 1. دوال المصادقة
   // --------------------------------------------------------
 
+  // إرسال رمز التحقق (OTP)
   async sendOtp(phone: string, countryCode: string) {
     const fullPhone = `${countryCode}${phone}`;
+    
     const { error } = await supabase.auth.signInWithOtp({
       phone: fullPhone,
     });
@@ -15,6 +17,7 @@ export const api = {
     return { success: true };
   },
 
+  // التحقق من الرمز وتسجيل الدخول
   async verifyOtp(phone: string, countryCode: string, token: string) {
     const fullPhone = `${countryCode}${phone}`;
 
@@ -32,7 +35,7 @@ export const api = {
       .select('*')
       .eq('id', authData.user.id)
       .single();
-
+    
     return { 
       session: authData.session,
       user: authData.user,
@@ -40,6 +43,7 @@ export const api = {
     };
   },
 
+  // تسجيل دخول الأدمن
   async loginAdmin(email: string, pass: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
@@ -50,76 +54,16 @@ export const api = {
     return data;
   },
 
-  async createProfile(userId: string, fullName: string, role: string, phone: string, countryCode: string) {
+  // إنشاء بروفايل جديد (تم تصحيح استقبال المتغيرات هنا)
+  async createProfile(id: string, full_name: string, role: string, phone: string, country_code: string) {
     const { data, error } = await supabase
       .from('profiles')
-      .insert([{ id: userId, full_name: fullName, role, phone, country_code: countryCode }])
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return data;
-  },
-
-  // --------------------------------------------------------
-  // 2. دوال تفاصيل السائق (تمت إضافتها)
-  // --------------------------------------------------------
-
-  async saveDriverDetails(userId: string, details: any) {
-    const { data, error } = await supabase
-      .from('driver_details')
-      .upsert({ user_id: userId, ...details })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return data;
-  },
-
-  async getDriverDetails(userId: string) {
-    const { data, error } = await supabase
-      .from('driver_details')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw new Error(error.message);
-    return data;
-  },
-
-  async getAvailableDrivers() {
-    // جلب السائقين مع تفاصيل مركباتهم
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*, driver_details(*)')
-      .eq('role', 'driver');
-
-    if (error) throw new Error(error.message);
-    
-    // تنسيق البيانات لتناسب الواجهة
-    return data.map((d: any) => ({
-      id: d.id,
-      name: d.full_name,
-      phone: d.phone,
-      countryCode: d.country_code,
-      currentCity: d.current_city || 'الرياض', // افتراضي
-      // التأكد من وجود تفاصيل السائق
-      truckType: d.driver_details?.[0]?.truck_type || null, 
-      created_at: d.created_at
-    }));
-  },
-
-  // --------------------------------------------------------
-  // 3. دوال الحمولات (تم تحديثها)
-  // --------------------------------------------------------
-
-  async postLoad(loadData: any, userId: string) {
-    const { data, error } = await supabase
-      .from('loads')
       .insert([{
-        ...loadData,
-        owner_id: userId,
-        status: 'available',
+        id,
+        full_name,
+        role,
+        phone,
+        country_code,
         created_at: new Date().toISOString()
       }])
       .select()
@@ -128,6 +72,63 @@ export const api = {
     if (error) throw new Error(error.message);
     return data;
   },
+
+  // حفظ تفاصيل السائق (الشاحنة، المقطورة، الأبعاد) - (كانت ناقصة)
+  async saveDriverDetails(id: string, details: any) {
+    const { error } = await supabase
+      .from('driver_details')
+      .insert([{
+        id: id, // الربط مع جدول profiles عبر id
+        truck_type: details.truck_type,
+        trailer_type: details.trailer_type,
+        dimensions: details.dimensions
+      }]);
+
+    if (error) throw new Error(error.message);
+    return true;
+  },
+
+  // جلب تفاصيل السائق (لعرضها في صفحة الحساب) - (كانت ناقصة)
+  async getDriverDetails(driverId: string) {
+    const { data, error } = await supabase
+      .from('driver_details')
+      .select('*')
+      .eq('id', driverId)
+      .single();
+
+    if (error) {
+      // قد لا يكون هناك تفاصيل إذا كان المستخدم جديداً
+      console.log("No driver details found or error:", error.message);
+      return null;
+    }
+    return data;
+  },
+
+  // جلب السائقين المتاحين (لصاحب الحمولة)
+  async getAvailableDrivers() {
+    // نجلب السائقين من البروفايل، ونربط مع تفاصيل السائق
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*, driver_details(*)')
+      .eq('role', 'driver'); // يمكنك إضافة فلتر .eq('is_available', true) لو أضفته في الداتابيس
+
+    if (error) throw new Error(error.message);
+
+    // تنسيق البيانات للعرض
+    return data.map((d: any) => ({
+      id: d.id,
+      name: d.full_name,
+      phone: d.phone,
+      country_code: d.country_code,
+      currentCity: 'الرياض', // قيمة افتراضية حتى يتم تفعيل التتبع
+      truckType: d.driver_details?.[0]?.truck_type || 'unknown',
+      rating: 5.0
+    }));
+  },
+
+  // --------------------------------------------------------
+  // 2. دوال الحمولات (Loads)
+  // --------------------------------------------------------
 
   async getLoads() {
     const { data, error } = await supabase
@@ -159,6 +160,27 @@ export const api = {
       ownerName: data.profiles?.full_name || 'مستخدم',
       ownerPhone: data.profiles?.phone || ''
     };
+  },
+
+  // نشر حمولة جديدة
+  async postLoad(loadData: any, userId: string) {
+    const { error } = await supabase
+      .from('loads')
+      .insert([{
+        owner_id: userId,
+        origin: loadData.origin,
+        destination: loadData.destination,
+        weight: loadData.weight,
+        price: loadData.price,
+        description: loadData.description,
+        truck_type_required: loadData.truck_type_required,
+        distance: loadData.distance,
+        estimatedTime: loadData.estimatedTime,
+        status: 'available'
+      }]);
+
+    if (error) throw new Error(error.message);
+    return true;
   },
 
   async getDriverHistory(driverId: string) {
