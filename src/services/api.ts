@@ -1,5 +1,3 @@
---- START OF FILE Electricity-company-main/src/services/api.ts ---
-
 import { supabase } from '@/lib/supabase';
 
 export const api = {
