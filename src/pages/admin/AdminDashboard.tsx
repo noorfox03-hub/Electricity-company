@@ -1,6 +1,3 @@
---- START OF FILE Electricity-company-main/src/pages/admin/AdminDashboard.tsx ---
-
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Users, Truck, Package, CheckCircle, ArrowLeft, Search, Activity, MoreVertical, Loader2 } from 'lucide-react';
