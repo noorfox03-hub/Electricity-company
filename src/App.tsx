@@ -4,11 +4,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useTranslation } from 'react-i18next'; // استيراد الترجمة
+import { useTranslation } from 'react-i18next';
 
 // Pages
 import WelcomePage from "./pages/WelcomePage";
 import LoginPage from "./pages/LoginPage";
+// --- إضافة الصفحات الجديدة هنا ---
+import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import NotFound from "./pages/NotFound";
 
 // Driver Pages
@@ -35,7 +38,6 @@ const queryClient = new QueryClient();
 const App = () => {
   const { i18n } = useTranslation();
 
-  // تغيير اتجاه الصفحة والخط بناءً على اللغة المختارة
   useEffect(() => {
     const dir = i18n.language === 'ar' || i18n.language === 'ur' ? 'rtl' : 'ltr';
     document.documentElement.dir = dir;
@@ -59,6 +61,10 @@ const App = () => {
           <Routes>
             <Route path="/" element={<WelcomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* --- المسارات الجديدة --- */}
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             
             {/* Driver Routes */}
             <Route path="/driver/registration" element={<DriverRegistration />} />
