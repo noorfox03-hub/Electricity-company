@@ -15,10 +15,9 @@ const RegisterPage = () => {
   const { t } = useTranslation();
   const { setUserProfile, setCurrentRole } = useAppStore();
 
-  const [step, setStep] = useState<number>(1); // 1: Role, 2: Info, 3: Email OTP
+  const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState(false);
 
-  // Form Data
   const [role, setRole] = useState<'driver' | 'shipper'>('driver');
   const [formData, setFormData] = useState({
     name: '',
@@ -33,46 +32,47 @@ const RegisterPage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Step 1 -> Step 2
-  const confirmRole = () => {
-    setStep(2);
-  };
+  const confirmRole = () => setStep(2);
 
-  // Step 2 -> Step 3 (Send Email OTP)
+  // الخطوة 2: إرسال الرمز (بدء الـ SignUp)
   const handleSendEmailOtp = async () => {
-    // Validation
     if (!formData.name || !formData.email || !formData.phone || !formData.password) {
       return toast.error(t('fill_all_fields'));
     }
     if (formData.password !== formData.confirmPassword) {
-      return toast.error(t('passwords_no_match') || "Passwords do not match");
+      return toast.error(t('passwords_no_match'));
     }
 
     setLoading(true);
     try {
-      // إرسال كود تحقق للبريد الإلكتروني
-      await api.sendEmailOtp(formData.email);
+      // نرسل الباسورد والبيانات لإنشاء المستخدم وإرسال الرمز
+      await api.sendEmailOtp(formData.email, formData.password, {
+        full_name: formData.name,
+        role: role,
+        phone: formData.phone
+      });
+      
       toast.success(`${t('otp_sent_email')} ${formData.email}`);
       setStep(3);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Error sending OTP");
+      console.error(error);
+      // استخدام error.message للحصول على نص الخطأ الفعلي
+      toast.error(error.message || t('error_generic'));
     }
     setLoading(false);
   };
 
-  // Step 3 (Verify OTP & Create Account)
+  // الخطوة 3: التحقق النهائي
   const handleRegister = async () => {
     if (otp.length < 6) return;
     setLoading(true);
 
     try {
-      // إرسال البيانات النهائية + كود التحقق للسيرفر
       const payload = {
         role,
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
-        password: formData.password,
         otpCode: otp
       };
 
@@ -82,11 +82,11 @@ const RegisterPage = () => {
       setCurrentRole(profile.role);
       toast.success(t('account_created_success'));
       
-      // التوجيه للوحة التحكم المناسبة
       navigate(profile.role === 'driver' ? '/driver/dashboard' : '/shipper');
 
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Registration failed");
+      console.error(error);
+      toast.error(error.message || t('error_otp'));
     }
     setLoading(false);
   };
@@ -94,20 +94,19 @@ const RegisterPage = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center px-6 py-10">
       <div className="max-w-md mx-auto w-full">
-        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-primary">{t('create_account') || "Create Account"}</h1>
+          <h1 className="text-2xl font-bold text-primary">{t('create_account')}</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {t('step') || "Step"} {step} / 3
+            {t('step')} {step} / 3
           </p>
         </div>
 
         <div className="brand-card p-6 space-y-6">
           
-          {/* --- STEP 1: Choose Role --- */}
+          {/* STEP 1: Role */}
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-center font-medium mb-4">{t('select_account_type') || "Are you a Driver or a Shipper?"}</p>
+              <p className="text-center font-medium mb-4">{t('select_account_type')}</p>
               
               <div 
                 onClick={() => setRole('driver')}
@@ -115,8 +114,8 @@ const RegisterPage = () => {
               >
                 <div className="bg-primary/10 p-3 rounded-full"><Truck className="text-primary w-6 h-6" /></div>
                 <div>
-                  <h3 className="font-bold">{t('driver') || "Driver"}</h3>
-                  <p className="text-xs text-muted-foreground">{t('driver_desc') || "I want to transport goods"}</p>
+                  <h3 className="font-bold">{t('driver')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('driver_desc')}</p>
                 </div>
                 {role === 'driver' && <div className="ml-auto w-4 h-4 bg-primary rounded-full" />}
               </div>
@@ -127,19 +126,19 @@ const RegisterPage = () => {
               >
                 <div className="bg-secondary/10 p-3 rounded-full"><Package className="text-secondary w-6 h-6" /></div>
                 <div>
-                  <h3 className="font-bold">{t('shipper') || "Shipper"}</h3>
-                  <p className="text-xs text-muted-foreground">{t('shipper_desc') || "I want to ship goods"}</p>
+                  <h3 className="font-bold">{t('shipper')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('shipper_desc')}</p>
                 </div>
                 {role === 'shipper' && <div className="ml-auto w-4 h-4 bg-secondary rounded-full" />}
               </div>
 
               <Button className="w-full mt-4" onClick={confirmRole}>
-                {t('next') || "Next"} <ArrowRight className="ml-2 w-4 h-4" />
+                {t('next')} <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </div>
           )}
 
-          {/* --- STEP 2: Basic Info --- */}
+          {/* STEP 2: Info (تصحيح مفاتيح الترجمة هنا) */}
           {step === 2 && (
             <div className="space-y-4">
                <div className="flex items-center gap-2 mb-2 cursor-pointer text-sm text-muted-foreground" onClick={() => setStep(1)}>
@@ -148,34 +147,34 @@ const RegisterPage = () => {
 
                <div className="space-y-3">
                  <div>
-                   <Label>{t('full_name') || "Full Name"}</Label>
-                   <Input name="name" value={formData.name} onChange={handleChange} placeholder="ex: Ahmed Ali" />
+                   <Label>{t('full_name')}</Label>
+                   <Input name="name" value={formData.name} onChange={handleChange} placeholder={t('name_placeholder')} />
                  </div>
                  <div>
-                   <Label>{t('phone') || "Phone Number"}</Label>
+                   <Label>{t('phone_label')}</Label> {/* تم التصحيح */}
                    <Input name="phone" type="tel" value={formData.phone} onChange={handleChange} placeholder="05xxxxxxxx" />
                  </div>
                  <div>
-                   <Label>{t('email') || "Email Address"}</Label>
+                   <Label>{t('email_label')}</Label> {/* تم التصحيح */}
                    <Input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" />
                  </div>
                  <div>
-                   <Label>{t('password') || "Password"}</Label>
+                   <Label>{t('password_label')}</Label> {/* تم التصحيح */}
                    <Input name="password" type="password" value={formData.password} onChange={handleChange} />
                  </div>
                  <div>
-                   <Label>{t('confirm_password') || "Confirm Password"}</Label>
+                   <Label>{t('confirm_password')}</Label>
                    <Input name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} />
                  </div>
                </div>
 
                <Button className="w-full" onClick={handleSendEmailOtp} disabled={loading}>
-                 {loading ? <Loader2 className="animate-spin" /> : t('verify_email_btn') || "Verify Email"}
+                 {loading ? <Loader2 className="animate-spin" /> : t('verify_email_btn')}
                </Button>
             </div>
           )}
 
-          {/* --- STEP 3: OTP Verification --- */}
+          {/* STEP 3: OTP */}
           {step === 3 && (
             <div className="space-y-6 text-center">
                <div className="flex items-center gap-2 mb-2 cursor-pointer text-sm text-muted-foreground" onClick={() => setStep(2)}>
@@ -183,7 +182,7 @@ const RegisterPage = () => {
                </div>
 
                <div>
-                 <h3 className="font-bold text-lg">{t('check_email') || "Check your Email"}</h3>
+                 <h3 className="font-bold text-lg">{t('check_email')}</h3>
                  <p className="text-sm text-muted-foreground mt-2">
                    {t('otp_sent_to_msg')} <br/><span className="font-medium text-foreground">{formData.email}</span>
                  </p>
@@ -198,7 +197,7 @@ const RegisterPage = () => {
                </div>
 
                <Button className="w-full h-12" onClick={handleRegister} disabled={loading || otp.length < 6}>
-                 {loading ? <Loader2 className="animate-spin" /> : t('complete_registration') || "Verify & Register"}
+                 {loading ? <Loader2 className="animate-spin" /> : t('complete_registration')}
                </Button>
             </div>
           )}
@@ -206,7 +205,7 @@ const RegisterPage = () => {
         </div>
 
         <div className="text-center mt-6">
-          <span className="text-muted-foreground">{t('have_account') || "Already have an account?"} </span>
+          <span className="text-muted-foreground">{t('have_account')} </span>
           <Link to="/login" className="text-primary font-bold hover:underline">
             {t('login_btn')}
           </Link>
