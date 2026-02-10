@@ -1,5 +1,3 @@
-// src/pages/RegisterPage.tsx
-
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '@/store/useAppStore';
