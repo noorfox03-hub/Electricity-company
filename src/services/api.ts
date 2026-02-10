@@ -1,11 +1,8 @@
 import { supabase } from '@/lib/supabase';
-import { Driver, Load, AdminStats, UserProfile } from '@/types';
+import { Driver, Load, AdminStats, UserProfile, Receiver, Product } from '@/types';
 
 export const api = {
-  // --------------------------------------------------------
-  // 1. Auth & Profiles
-  // --------------------------------------------------------
-
+  // --- Auth & Profiles ---
   async sendOtp(phone: string, countryCode: string) {
     const fullPhone = `${countryCode}${phone}`;
     const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone });
@@ -22,9 +19,8 @@ export const api = {
     });
 
     if (authError) throw new Error(authError.message);
-    if (!authData.user) throw new Error("فشل التحقق من المستخدم");
+    if (!authData.user) throw new Error("Authentication failed");
 
-    // جلب البروفايل فوراً بعد التحقق
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
@@ -68,8 +64,6 @@ export const api = {
       .select('*')
       .eq('id', driverId)
       .single();
-    
-    // PGRST116 تعني لا توجد نتائج (وهذا طبيعي لمستخدم جديد)
     if (error && error.code !== 'PGRST116') console.error(error); 
     return data;
   },
@@ -88,7 +82,7 @@ export const api = {
       phone: d.phone,
       country_code: d.country_code,
       role: d.role,
-      currentCity: 'الرياض', // سيتم تفعيل GPS لاحقاً
+      currentCity: 'الرياض',
       rating: 5.0,
       completedTrips: 0,
       isAvailable: true,
@@ -98,10 +92,7 @@ export const api = {
     }));
   },
 
-  // --------------------------------------------------------
-  // 2. Loads (الحمولات)
-  // --------------------------------------------------------
-
+  // --- Loads & Shipments ---
   async getLoads(): Promise<Load[]> {
     const { data, error } = await supabase
       .from('loads')
@@ -110,7 +101,6 @@ export const api = {
       .order('created_at', { ascending: false });
     
     if (error) throw new Error(error.message);
-    
     return data as Load[];
   },
 
@@ -125,16 +115,54 @@ export const api = {
     return data as Load;
   },
 
-  async postLoad(loadData: Partial<Load>, userId: string) {
-    const { error } = await supabase
+  // Updated postLoad to handle Products and Receiver (JSONB assumed or simplified)
+  async postLoad(loadData: Partial<Load> & { products?: Product[], receiver?: Receiver }, userId: string) {
+    // 1. Insert Load main data
+    // Note: This assumes your DB 'loads' table has columns or a JSONB column 'details' to store extras.
+    // For this example, we'll assume standard columns + 'receiver_info' JSONB column.
+    
+    const { data: load, error: loadError } = await supabase
       .from('loads')
       .insert([{
         owner_id: userId,
-        ...loadData,
-        status: 'available'
-      }]);
+        origin: loadData.origin,
+        destination: loadData.destination,
+        originLat: loadData.originLat,
+        originLng: loadData.originLng,
+        destLat: loadData.destLat,
+        destLng: loadData.destLng,
+        weight: loadData.weight,
+        price: loadData.price,
+        truck_type_required: loadData.truck_type_required,
+        status: 'available',
+        // Storing complex objects as JSONB if supported by your schema, otherwise adjust accordingly
+        receiver_info: loadData.receiver, 
+        package_type: loadData.package_type,
+        type: loadData.type,
+        pickup_date: loadData.pickupDate,
+        estimatedTime: loadData.estimatedTime
+      }])
+      .select()
+      .single();
 
-    if (error) throw new Error(error.message);
+    if (loadError) throw new Error(loadError.message);
+
+    // 2. Insert Products (Assuming a 'shipment_products' table)
+    if (loadData.products && loadData.products.length > 0) {
+       const productsToInsert = loadData.products.map(p => ({
+         load_id: load.id,
+         name: p.name,
+         description: p.description,
+         quantity: p.quantity,
+         unit: p.unit,
+         type: p.type
+       }));
+       
+       const { error: prodError } = await supabase.from('shipment_products').insert(productsToInsert);
+       // We log error but don't fail the whole operation if products fail (optional logic)
+       if (prodError) console.error("Error saving products:", prodError);
+    }
+
     return true;
   },
 
@@ -165,11 +193,9 @@ export const api = {
     if (error) throw new Error(error.message);
   },
 
-  // --------------------------------------------------------
-  // 3. Stats (الإحصائيات)
-  // --------------------------------------------------------
-  
+  // --- Stats ---
   async getAdminStats(): Promise<AdminStats> {
+    // This aggregates counts using Supabase 'count' feature
     const [users, drivers, shippers, activeLoads, completed] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'driver'),
