@@ -1,310 +1,166 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Users, Truck, Package, CheckCircle, ArrowLeft, Search, Activity, MoreVertical, Loader2 } from 'lucide-react';
-import { truckTypes } from '@/data/mockData';
+import { 
+  Users, Truck, Package, LayoutDashboard, Settings, 
+  FileText, Headphones, CreditCard, LogOut, Menu
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-type TabType = 'overview' | 'drivers' | 'shippers' | 'loads';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalDrivers: 0,
-    totalShippers: 0,
-    activeLoads: 0,
-    completedTrips: 0
-  });
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [loads, setLoads] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        setLoading(true);
-        const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-        const { count: driversCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'driver');
-        const { count: shippersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'shipper');
-        const { count: activeLoadsCount } = await supabase.from('loads').select('*', { count: 'exact', head: true }).in('status', ['available', 'in_progress']);
-        const { count: completedLoadsCount } = await supabase.from('loads').select('*', { count: 'exact', head: true }).eq('status', 'completed');
-
-        setStats({
-          totalUsers: usersCount || 0,
-          totalDrivers: driversCount || 0,
-          totalShippers: shippersCount || 0,
-          activeLoads: activeLoadsCount || 0,
-          completedTrips: completedLoadsCount || 0
-        });
-
-        // جلب السائقين مع تفاصيل مركباتهم
-        const { data: driversData } = await supabase
-          .from('profiles')
-          .select('*, driver_details(*)')
-          .eq('role', 'driver')
-          .order('created_at', { ascending: false });
-          
-        if (driversData) setDrivers(driversData);
-
-        const { data: loadsData } = await supabase
-          .from('loads')
-          .select('*, profiles:owner_id(full_name)')
-          .order('created_at', { ascending: false });
-          
-        if (loadsData) setLoads(loadsData);
-
-      } catch (error) {
-        console.error('Error fetching admin data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAdminData();
-  }, []);
-
-  const getTruckName = (typeId: string) => {
-    const truck = truckTypes.find(t => t.id === typeId);
-    return truck ? t(truck.id as any) : typeId;
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // إحصائيات وهمية للمثال، يجب ربطها بالـ API الحقيقي
+  const stats = {
+    users: 1250,
+    shipments_today: 45,
+    commissions: 15200,
+    performance: '95%'
   };
 
-  const statCards = [
-    { label: t('total_users'), value: stats.totalUsers, icon: Users, color: 'bg-primary' },
-    { label: t('drivers_list'), value: stats.totalDrivers, icon: Truck, color: 'bg-secondary' },
-    { label: t('active_loads'), value: stats.activeLoads, icon: Package, color: 'bg-brand-orange-light' },
-    { label: t('completed_trips'), value: stats.completedTrips, icon: CheckCircle, color: 'bg-brand-green' },
+  const menuItems = [
+    { id: 'dashboard', label: t('admin_dashboard'), icon: LayoutDashboard },
+    { id: 'users', label: t('users_management'), icon: Users },
+    { id: 'shipments', label: t('shipments_management'), icon: Package },
+    { id: 'support', label: t('support_reports'), icon: Headphones },
+    { id: 'finance', label: t('finance_operations'), icon: CreditCard },
+    { id: 'settings', label: t('system_settings'), icon: Settings },
   ];
 
-  const tabs = [
-    { id: 'overview', label: t('overview') },
-    { id: 'drivers', label: t('drivers_list') },
-    { id: 'shippers', label: t('shippers_list') },
-    { id: 'loads', label: t('orders_list') },
-  ];
-
-  const filteredDrivers = drivers.filter(driver =>
-    driver.full_name?.includes(searchQuery) || driver.phone?.includes(searchQuery)
+  const SidebarContent = () => (
+    <div className="h-full flex flex-col bg-slate-900 text-white">
+      <div className="p-6 border-b border-slate-800">
+        <h1 className="text-2xl font-bold text-primary">{t('app_name')}</h1>
+        <p className="text-xs text-slate-400 mt-1">{t('admin_login')}</p>
+      </div>
+      <nav className="flex-1 p-4 space-y-2">
+        {menuItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => { setActiveTab(item.id); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              activeTab === item.id 
+                ? 'bg-primary text-white shadow-lg shadow-primary/30 font-bold' 
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <item.icon className="w-5 h-5" />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="p-4 border-t border-slate-800">
+        <button onClick={() => navigate('/login')} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors">
+          <LogOut className="w-5 h-5" />
+          <span>تسجيل الخروج</span>
+        </button>
+      </div>
+    </div>
   );
 
-  const activeLoadsList = loads.filter(load => load.status === 'in_progress' || load.status === 'available');
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-card border-b border-border px-4 lg:px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="icon-btn w-10 h-10 lg:hidden">
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center p-1.5 border border-primary/20">
-                <img src="/logo.png" alt="SAS" className="w-full h-full object-contain" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">{t('dashboard')}</h1>
-                <p className="text-sm text-muted-foreground hidden lg:block">{t('system_management')}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('search_placeholder')}
-                className="input-field pr-10 w-64"
-              />
-            </div>
-          </div>
-        </div>
+    <div className="flex min-h-screen bg-gray-50" dir="rtl">
+      {/* Sidebar Desktop */}
+      <div className="hidden lg:block w-72 shrink-0">
+        <SidebarContent />
       </div>
 
-      <div className="bg-card border-b border-border px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex gap-1 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as TabType)}
-                className={`px-4 py-3 font-medium text-sm whitespace-nowrap border-b-2 transition-colors ${
-                  activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+      {/* Mobile Header */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        <header className="lg:hidden bg-white p-4 flex items-center justify-between shadow-sm border-b">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" className="w-8 h-8" alt="Logo" />
+            <span className="font-bold text-lg">{t('admin_dashboard')}</span>
           </div>
-        </div>
-      </div>
+          <Sheet>
+            <SheetTrigger>
+              <Menu className="w-6 h-6 text-slate-700" />
+            </SheetTrigger>
+            <SheetContent side="right" className="p-0 border-0">
+              <SidebarContent />
+            </SheetContent>
+          </Sheet>
+        </header>
 
-      <div className="max-w-7xl mx-auto p-4 lg:p-8">
-        {activeTab === 'overview' && (
-          <div className="space-y-6 animate-fade-in">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {statCards.map((stat, index) => (
-                <div key={index} className="brand-card p-4 lg:p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center`}>
-                      <stat.icon className="w-6 h-6 text-white" />
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-auto p-4 lg:p-8">
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6 animate-fade-in">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">نظرة عامة</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+12%</span>
+                  </div>
+                  <p className="text-gray-500 text-sm mb-1">{t('active_users')}</p>
+                  <p className="text-3xl font-bold text-gray-800">{stats.users}</p>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600">
+                      <Package className="w-6 h-6" />
                     </div>
                   </div>
-                  <p className="text-2xl lg:text-3xl font-bold text-foreground mb-1">{stat.value.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-gray-500 text-sm mb-1">{t('today_shipments')}</p>
+                  <p className="text-3xl font-bold text-gray-800">{stats.shipments_today}</p>
                 </div>
-              ))}
-            </div>
 
-            <div className="brand-card p-4 lg:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" />
-                  {t('recent_orders')}
-                </h2>
-                <span className="badge-active text-xs">{t('live_status')}</span>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
+                      <CreditCard className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <p className="text-gray-500 text-sm mb-1">{t('total_commissions')}</p>
+                  <p className="text-3xl font-bold text-gray-800">{stats.commissions} ر.س</p>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                {activeLoadsList.length > 0 ? activeLoadsList.slice(0, 5).map((load) => (
-                  <div key={load.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${load.status === 'in_progress' ? 'bg-secondary animate-pulse' : 'bg-primary'}`} />
+              {/* Chart Placeholder based on OCR "Performance Reports" */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-96 flex flex-col justify-center items-center text-gray-400">
+                  <FileText className="w-16 h-16 mb-4 opacity-20" />
+                  <p>رسم بياني: نمو الشحنات (قريباً)</p>
+                </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-96">
+                  <h3 className="font-bold text-gray-800 mb-4">تنبيهات هامة</h3>
+                  <div className="space-y-4">
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex gap-3">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
                       <div>
-                        <p className="font-semibold text-foreground">{load.origin} ← {load.destination}</p>
-                        <p className="text-sm text-muted-foreground">{load.profiles?.full_name || t('visitor')}</p>
+                        <p className="text-sm font-bold text-red-800">مستندات منتهية</p>
+                        <p className="text-xs text-red-600">5 سائقين لديهم رخص منتهية</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-primary">{load.price} {t('sar')}</span>
+                    <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg flex gap-3">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="text-sm font-bold text-yellow-800">شكاوى جديدة</p>
+                        <p className="text-xs text-yellow-600">2 شكاوى قيد الانتظار</p>
+                      </div>
                     </div>
                   </div>
-                )) : (
-                  <p className="text-center text-muted-foreground py-4">{t('no_recent_loads')}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'drivers' && (
-          <div className="animate-fade-in">
-            <div className="lg:hidden mb-4">
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('search_placeholder')}
-                  className="input-field pr-10"
-                />
-              </div>
-            </div>
-
-            <div className="brand-card overflow-hidden">
-              <div className="overflow-x-auto">
-                {/* تم إضافة min-w-[600px] لمنع انضغاط الجدول في الموبايل */}
-                <table className="w-full min-w-[600px]">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-right p-4 font-semibold text-foreground">{t('driver')}</th>
-                      <th className="text-right p-4 font-semibold text-foreground">{t('phone_label')}</th>
-                      <th className="text-right p-4 font-semibold text-foreground">{t('truck_label')}</th>
-                      <th className="text-right p-4 font-semibold text-foreground">{t('registration_date')}</th>
-                      <th className="p-4"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDrivers.length > 0 ? filteredDrivers.map((driver) => (
-                      <tr key={driver.id} className="border-t border-border hover:bg-muted/50 transition-colors">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center shrink-0">
-                              <Truck className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-foreground">{driver.full_name}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-muted-foreground" dir="ltr">{driver.country_code} {driver.phone}</td>
-                        <td className="p-4 text-muted-foreground">
-                          {/* استرجاع نوع الشاحنة من مصفوفة driver_details */}
-                          {driver.driver_details?.[0]?.truck_type 
-                            ? getTruckName(driver.driver_details[0].truck_type) 
-                            : <span className="text-muted-foreground/50">{t('no_data')}</span>}
-                        </td>
-                        <td className="p-4 text-muted-foreground text-sm">
-                          {new Date(driver.created_at).toLocaleDateString('ar-SA')}
-                        </td>
-                        <td className="p-4">
-                          <button className="icon-btn w-8 h-8">
-                            <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-muted-foreground">{t('no_registered_drivers')}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'shippers' && (
-          <div className="animate-fade-in">
-            <div className="brand-card p-8 text-center">
-              <Users className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-foreground mb-2">{t('shippers_list')}</h3>
-              <p className="text-muted-foreground mb-4">{t('total_registered')}: {stats.totalShippers}</p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'loads' && (
-          <div className="animate-fade-in space-y-3">
-            {loads.length > 0 ? loads.map((load) => (
-              <div key={load.id} className="brand-card p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    {load.status === 'available' && <span className="badge-active">{t('available_status')}</span>}
-                    {load.status === 'in_progress' && <span className="badge-active pulse-live">{t('in_progress_status')}</span>}
-                    {load.status === 'completed' && <span className="badge-completed">{t('completed_status')}</span>}
-                  </div>
-                  <p className="font-bold text-primary">{load.price} {t('sar')}</p>
-                </div>
-                
-                <p className="font-semibold text-foreground mb-2">{load.origin} ← {load.destination}</p>
-                
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{load.profiles?.full_name || t('shipper')}</span>
-                  <span>{new Date(load.created_at).toLocaleDateString('ar-SA')}</span>
                 </div>
               </div>
-            )) : (
-              <div className="text-center py-12 text-muted-foreground">{t('no_recent_loads')}</div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+          
+          {/* Placeholder for other tabs */}
+          {activeTab !== 'dashboard' && (
+            <div className="flex items-center justify-center h-full text-gray-400 flex-col gap-4">
+              <Settings className="w-20 h-20 opacity-20" />
+              <p className="text-lg">قسم {menuItems.find(i => i.id === activeTab)?.label} قيد التطوير</p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );
